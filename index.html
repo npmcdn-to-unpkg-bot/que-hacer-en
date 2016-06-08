@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>
+      Ejercicio1 - Juan José de la Torre
+    </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.1.1/normalize.min.css" media="screen" charset="utf-8">
+    <style media="screen">
+      body {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        resize: both;
+        overflow: auto;
+        background-color: black;
+      }
+      .grid {
+        display: block;
+      }
+      /* clearfix */
+      .grid:after {
+        content: '';
+        display: block;
+        clear: both;
+      }
+      .grid-item {
+        float: left;
+        margin: 0;
+        padding: 0;
+        display: inline-block;
+        padding-bottom: 10px;
+      }
+      .grid-item img {
+        position: relative;
+        width: 320px;
+        min-height: 320px;
+        filter: opacity(30%);
+        -webkit-filter: opacity(30%);
+        transition: filter 3s ease;
+      }
+      .grid-item img.loaded {
+        filter: opacity(100%);
+        -webkit-filter: opacity(100%);
+      }
+
+      .grid-item figcaption {
+        width: 80%;
+        margin: -20px auto 0 auto;
+        text-align: center;
+        font-style: italic;
+        background-color: #cacaca;
+        color: white;
+        font-size: 14px;
+        -webkit-filter: opacity(100%);
+      }
+
+      form.search-wrapper {
+        position: fixed;
+        background-color: rgba(255, 255, 255, 0.75);
+        border-radius: 1em;
+        border: 1px #ccc solid;
+        padding: 20px;
+        width: 650px;
+        display: block;
+        top: 50%;
+        left: 25%;
+        font-size: 24px;
+        font-weight: bolder;
+        -webkit-box-shadow: 0 8px 6px -6px rgb(125, 125, 125);
+	       -moz-box-shadow: 0 8px 6px -6px rgb(125, 125, 125);
+	        box-shadow: 0 8px 6px -6px rgb(125, 125, 125);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="grid">
+      <div class="grid-sizer"></div>
+    </section>
+    <form class="search-wrapper">
+      Qué hacer en &nbsp;&nbsp;<input type="text" id="search" name="search" value="" placeholder="ciudad, país" autofocus>&nbsp;  ahora ?
+    </form>
+  </body>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+  <script src="https://npmcdn.com/masonry-layout@4.0/dist/masonry.pkgd.min.js"></script>
+  <script>
+
+    var visitorGeoData;
+    $(function() {
+      initApp();
+    });
+
+    $("form").submit(function(event){
+      event.preventDefault();
+      var locationText = $("input[name='search']").val();
+      getPicturesByCityAndCountry(locationText);
+      return false;
+    });
+
+    function getApiRequestLocationUrl(latitude, longitude) {
+      return "https://api.instagram.com/v1/media/search?lat=" + latitude + "&lng=" + longitude + "&access_token=1785944486.1677ed0.2e482c45402141cfa49a69235cedfd0d";
+    }
+
+    function getPicturesByCityAndCountry(locationText) {
+      var locationUrlEncoded = encodeURIComponent(locationText);
+      var googleGeoCodeUrl = "https://maps.googleapis.com/maps/api/geocode/json?address=" + locationUrlEncoded + "&language=es&key=AIzaSyB40O_KXgYtkzmXlh6ycJj8GA68Ss94rKI";
+
+
+      $.ajax({
+        dataType: "json",
+        url: googleGeoCodeUrl,
+        async:false,
+        success: function(response) {
+          visitorGeoData = [locationText, response.results[0].geometry.location.lat, response.results[0].geometry.location.lng];
+          renderPicturesByLocation(visitorGeoData[1], visitorGeoData[2]);
+        }
+      });
+  }
+
+  function renderPicturesByLocation(latitude, longitude) {
+    $.ajax({
+      type: "GET",
+      dataType: "jsonp",
+      cache: false,
+      url: getApiRequestLocationUrl(latitude, longitude),
+      success: function(data) {
+        $(".grid").html("");
+         for(var i=0; i<data.data.length; i++) {
+           var image = data.data[i];
+           if (image.type == "image" && image.location != null) {
+             $(".grid").append('<figure class="grid-item"><a href="'+ image.link +'" target="_blank"><img src="' + image.images.low_resolution.url + '" height="320" width="320" onload="imageOnLoadHandler(this)"></a><figcaption>'+ image.location.name +'</figcaption></figure>');
+           }
+         }
+         $("html, body").animate({ scrollTop: 0 }, "slow");
+      },
+      error: function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+      }
+  });
+}
+
+  function imageOnLoadHandler(el) {
+    el.className += " loaded";
+  }
+
+  function initApp() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        var latitude = position.coords.latitude;
+        var longitude = position.coords.longitude;
+        var googleGeoCodeUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "%2C" + longitude + "&language=es&result_type=administrative_area_level_2" + "&key=AIzaSyB40O_KXgYtkzmXlh6ycJj8GA68Ss94rKI";
+
+        $.ajax({
+          dataType: "json",
+          url: googleGeoCodeUrl,
+          async:false,
+          success: function(response) {
+            visitorGeoData = [response.results[0].address_components[0].long_name, latitude, longitude];
+            $("#search").val(visitorGeoData[0]);
+            renderPicturesByLocation(visitorGeoData[1], visitorGeoData[2]);
+          }
+        });
+      }, function(){
+        console.error("no se pudo obterner la geolocation del usuario..");
+      });
+    } else {
+
+    }
+
+    $('.grid').masonry({
+      itemSelector: '.grid-item',
+      columnWidth: 320
+    });
+  }
+
+  </script>
+</html>
